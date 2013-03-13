@@ -31,6 +31,7 @@
     to/2,
     from/1,
     from/2,
+    email/1,
     add_header/2,
     add_headers/2,
     update_header/2,
@@ -51,14 +52,16 @@
 %% API
 
 -spec encode(Msg :: #mime_msg{}) -> string().
-% @doc Encode a #mime_msg{} record into a string.
+% @doc Encode a message into a string.
 %
 % This function "renders" the #mime_msg{} record into a string which is suitable
 % to pass directly to a mail client.  It encodes all the attached headers and
 % then processes associated #mime_part{} records.
 % @end
 encode(Msg) -> 
-    io:format("~p", [Msg]).
+    encode_headers(headers(Msg)) ++ "\r\n\r\n" ++
+        encode_parts(Msg) ++
+        "--" ++ Msg#mime_msg.boundary ++ "--\r\n".
 
 -spec new() -> #mime_msg{}.
 % @doc Create a new barebones #mime_msg{} record.
@@ -111,14 +114,44 @@ new(To, From, Subject, Body) ->
 to( _Msg = #mime_msg{headers = H} ) ->
     proplists:get_value("To", H).
 
-% @TODO - add email extraction regex for to and from headers.
-
 -spec to( Msg :: #mime_msg{}, To :: string() ) -> #mime_msg{}.
 % @doc Convenience function to quickly add or modify the value of the `To' header.
 to( Msg, To ) ->
     add_header(Msg, {"To", To}).
 
+-spec from( Msg :: #mime_msg{} ) -> string() | 'undefined'.
+% @doc Convenience function to lookup to the value of the `From' header.
+from( _Msg = #mime_msg{headers = H} ) ->
+    proplists:get_value("From", H).
+
+-spec from( Msg :: #mime_msg{}, From :: string() ) -> #mime_msg{}.
+% @doc Convenience function to quickly add or modify the value of the `From' header.
+from( Msg, From ) ->
+    add_header(Msg, {"From", From}).
+
+-spec email( S :: string() ) -> string() | 'undefined'.
+% @doc Given a string with an email address in it, return <b>only</b> the email address.
+%
+% This is mostly useful for getting raw email addresses from headers, as in:
+%
+% `ToEmail = email(to(Msg))'
+%
+% Returns 'undefined' if no email address is matched.
+% @end
+email(S) ->
+    case re:run(S, "(\\w[-._+'\\w]*\\w@\\w[-._\\w]*\\w\\.\\w{2,6})", [{capture, first, list}]) of
+        {match, Capture} ->
+            hd(Capture);
+        nomatch ->
+            undefined
+    end.
+
 -spec add_header( Msg :: #mime_msg{}, Header :: { Key :: atom() | string(), Value :: string() } ) -> #mime_msg{}. 
+% @doc Add a header tuple to a message.
+%
+% This function takes pains not to add a header more than once.  Repeated
+% additions will update the value of the header.
+% @end
 add_header(Msg = #mime_msg{headers = H}, Header = {Key, _Value}) when is_list(Key) ->
     Msg#mime_msg{headers = lists:keystore(H, 1, Key, Header)};
 
@@ -126,10 +159,15 @@ add_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
     add_header(Msg, {atom_to_list(Key), Value}).
 
 -spec add_headers( Msg :: #mime_msg{}, Headers :: [{ Key :: string(), Value :: string() }] ) -> #mime_msg{}.
+% @doc Add a proplist of headers to a message.
+%
+% This method <b>does not</b> filter duplicates.
+% @end
 add_headers(Msg = #mime_msg{headers = H}, Headers) when is_list(Headers)->
     Msg#mime_msg{headers = H ++ Headers}.
 
 -spec update_header( Msg :: #mime_msg{}, Header :: { Key :: atom() | string(), Value :: string() } ) -> #mime_msg{}.
+% @doc Update a header value in the given message.
 update_header(Msg, Header = {Key, _Value}) when is_list(Key) ->
     add_header(Msg, Header);
 
@@ -137,6 +175,7 @@ update_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
     add_header(Msg, {atom_to_list(Key), Value}).
 
 -spec delete_header( Msg :: #mime_msg{}, Header :: { Key :: atom() | string(), Value :: string() } ) -> #mime_msg{}.
+% @doc Remove a header from a message.
 delete_header(Msg = #mime_msg{headers = H}, Header = {Key, _Value}) when is_list(Key) -> 
     Msg#mime_msg{headers = lists:keydelete(H, 1, Key, Header)};
 
@@ -144,10 +183,24 @@ delete_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
     delete_header(Msg, {atom_to_list(Key), Value}).
     
 -spec update_message_type( Msg :: #mime_msg{}, Type :: atom() ) -> #mime_msg{}.
+% @doc Update a message type.
+%
+% @see new/1. For more information about MIME subtypes, see here.
+% @end
 update_message_type(Msg, Type) ->
     Msg#mime_msg{type = Type}.
 
 -spec new_part() -> #mime_part{}.
+% @doc Create a new empty part of a MIME message.
+% 
+% The defaults are:
+% <ul>
+%   <li>Content-Encoding: 7bit</li>
+%   <li>Content-Type: text/plain</li>
+%   <li>Charset: US-ASCII</li>
+%   <li>Content-Disposition: inline</li>
+% </ul>
+% @end
 new_part() -> 
     #mime_part{}.
 
@@ -156,6 +209,7 @@ new_part() ->
     Disposition :: atom(),
     Filename :: 'undefined' | string(),
     Data :: string() ) -> #mime_part{}.
+% @doc Create a new message part, specifying all of the part components.
 new_part(Encoding, Disposition, Filename, Data) ->
     #mime_part{
         encoding = Encoding,
@@ -164,41 +218,57 @@ new_part(Encoding, Disposition, Filename, Data) ->
         data = Data}.
 
 -spec add_part( Msg :: #mime_msg{}, Part :: #mime_part{} ) -> #mime_msg{}.
+% @doc Add a part to a MIME message.
 add_part(Msg = #mime_msg{parts = P}, Part) ->
     Msg#mime_msg{parts = P ++ [Part]}.
 
 -spec remove_last_part( Msg :: #mime_msg{} ) -> #mime_msg{}.
+% @doc Remove the last part from the MIME message.
 remove_last_part(Msg = #mime_msg{parts = P}) ->
     Msg#mime_msg{parts = remove_part(P)}.
     
 -spec add_plain_text_part( Msg :: #mime_msg{}, Body :: string() ) -> #mime_msg{}.
+% @doc Convenience function to add a plain text part to a message.
 add_plain_text_part(Msg = #mime_msg{parts = P}, Body) -> 
     Msg#mime_msg{parts = P ++ [ #mime_part{ data = Body } ]}.
     
 -spec inline_file( Msg :: #mime_msg{}, Filename :: string() ) -> #mime_msg{}.
+% @doc Add a file inline to a message.  
+%
+% The MIME part is guessed either by using the `file(1)' command or by looking at the 
+% file extension.  This behavior can be controlled by setting the `use_file_cmd'
+% directive to true or false.
+%
+% The default guess is `application/octet-stream'.
+% @end
 inline_file(Msg, Filename) ->
     Guess = guess_mime_type(Filename),
     handle_file(get_mime_type(Guess), Msg, Guess, inline, Filename).
 
 -spec inline_file( Msg :: #mime_msg{}, MimeType :: string(), Filename :: string() ) -> #mime_msg{}.
+% @doc Add an inline file with the specified MIME type.
 inline_file(Msg, MimeType, Filename) ->
     handle_file(get_mime_type(MimeType), Msg, MimeType, inline, Filename).
 
 -spec attach_file( Msg :: #mime_msg{}, Filename :: string() ) -> #mime_msg{}.
+% @doc Attach a file to a message.  
+%
+% @see inline_file/2. MIME type guessing works the same as inline_file/2.
+% @end
 attach_file(Msg, Filename) ->
     Guess = guess_mime_type(Filename),
     handle_file(get_mime_type(Guess), Msg, Guess, attachment, Filename).
 
 -spec attach_file( Msg :: #mime_msg{}, MimeType :: string(), Filename :: string() ) -> #mime_msg{}.
+% @doc Attach a file to a message with the specified MIME type.
 attach_file(Msg, MimeType, Filename) ->
     handle_file(get_mime_type(MimeType), Msg, MimeType, attachment, Filename).
-
 
 %% PRIVATE FUNCTIONS
 
 generate_boundary() ->
     <<X:64/big-unsigned-integer>> = crypto:rand_bytes(8),
-    "===========" ++ io_lib:format("~12.36.0B", [X]).
+    "===========" ++ io_lib:format("~36.0B", [X]).
 
 remove_part(P) ->
     lists:sublist(P, (length(P) - 1)).
@@ -253,3 +323,65 @@ handle_file(_Type, Msg, MimeType, Disposition, Filename) ->
         Filename,
         base64:encode_to_string(read_file(Filename)))).
 
+
+%% HEADERS
+%% 
+%% Original source:
+%% https://github.com/zotonic/zotonic/blob/master/src/smtp/z_email_server.erl#L940
+encode_header({Header, [V|Vs]}) when is_list(V) ->
+    Hdr = lists:map(fun ({K, Value}) when is_list(K), is_list(Value) ->
+                            K ++ "=" ++ Value;
+                        ({K, Value}) when is_atom(K), is_list(Value) ->
+                            atom_to_list(K) ++ "=" ++ Value;
+                        (Value) when is_list(Value) -> Value
+                    end,
+                    [V|Vs]),
+    Header ++ ": " ++ string:join(Hdr, ";\r\n  ");
+encode_header({Header, Value})
+    when Header =:= "To"; Header =:= "From"; Header =:= "Reply-To"; 
+         Header =:= "Cc"; Header =:= "Bcc"; Header =:= "Date";
+         Header =:= "Content-Type"; Header =:= "Mime-Version"; Header =:= "MIME-Version";
+         Header =:= "Content-Transfer-Encoding" ->
+    Value1 = lists:filter(fun(H) -> H >= 32 andalso H =< 126 end, Value),
+    Header ++ ": " ++ Value1;
+encode_header({Header, Value}) when is_list(Header), is_list(Value) ->
+    % Encode all other headers according to rfc2047
+    Header ++ ": " ++ rfc2047:encode(Value);
+encode_header({Header, Value}) when is_atom(Header), is_list(Value) ->
+    atom_to_list(Header) ++ ": " ++ rfc2047:encode(Value).
+
+encode_headers(Headers) ->
+    string:join(lists:map(fun encode_header/1, Headers), "\r\n").
+
+
+%% Encode message parts
+encode_parts(#mime_msg{parts=Parts, boundary=Boundary}) ->
+    lists:map(fun(P) -> encode_part(P,Boundary) end, Parts).
+
+encode_part(#mime_part{data=Data} = P, Boundary) ->
+    "--" ++ Boundary ++ "\r\n" ++
+    encode_headers(part_headers(P)) ++ "\r\n\r\n" ++
+    Data ++ "\r\n";
+
+encode_part(Msg = #mime_msg{}, Boundary) ->
+    "--" ++ Boundary ++ "\r\n" ++ encode(Msg) ++ "\r\n".
+
+part_headers(#mime_part{disposition=undefined, 
+                        encoding={Enc, MimeType, Charset},
+                        filename=undefined}) ->
+    [{"Content-Transfer-Encoding", Enc},
+     {"Content-Type", [MimeType, {charset, Charset}]}];
+
+part_headers(#mime_part{disposition=D, 
+                        encoding={Enc, MimeType, Charset},
+                        filename=Filename}) when D == inline; D == attachment ->
+    [{"Content-Transfer-Encoding", Enc},
+     {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Filename]},
+     {"Content-Disposition", [atom_to_list(D), 
+                              {"filename", 
+                              Filename}]}].
+
+headers(#mime_msg{headers=H, boundary=Boundary}) ->
+    H ++ [{"MIME-Version", "1.0"},
+          {"Content-Type", ["multipart/mixed", 
+                            "boundary=\"" ++ Boundary ++ "\""]}].
