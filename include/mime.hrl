@@ -10,6 +10,7 @@
 -record(mime_part, { 
     encoding={"7bit", "text/plain", "US-ASCII"}, 
     disposition=inline, 
+    content_id,
     filename, 
     data}
 ).
