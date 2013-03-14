@@ -22,6 +22,7 @@
 -include("mime.hrl").
 
 -export([
+    start/0,
     encode/1,
     new/0,
     new/1,
@@ -57,6 +58,11 @@
 ).
 
 %% API
+
+-spec start() -> ok.
+% @doc Start the epistula app and all of its dependencies.
+start() ->
+    application:start(epistula).
 
 -spec encode(Msg :: #mime_msg{}) -> string().
 % @doc Encode a message into a string.
@@ -230,7 +236,7 @@ new_part(Encoding, Disposition, ContentId, Filename, Data) ->
 % @doc Generate a cryptographically random 16 byte Content ID.
 generate_content_id() ->
    <<X:128/big-unsigned-integer>> = crypto:rand_bytes(16),
-   io_lib:format("~36.0B", [X]).
+   lists:flatten(io_lib:format("~.36.0B", [X])).
 
 -spec update_content_id( Part :: #mime_part{}, ContentId :: string() ) -> #mime_part{}.
 % @doc Update a Content ID in a MIME message part.
@@ -321,7 +327,7 @@ attach_file(Msg, MimeType, ContentId, Filename) ->
 
 generate_boundary() ->
     <<X:64/big-unsigned-integer>> = crypto:rand_bytes(8),
-    "===========" ++ io_lib:format("~36.0B", [X]).
+    lists:flatten("===========" ++ io_lib:format("~.36.0B", [X])).
 
 remove_part(P) ->
     lists:sublist(P, (length(P) - 1)).

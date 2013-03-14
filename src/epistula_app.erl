@@ -10,6 +10,8 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
+    ok = application:start(crypto),
+    ok = application:start(esmtp),
     epistula_sup:start_link().
 
 stop(_State) ->
