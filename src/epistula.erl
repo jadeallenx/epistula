@@ -38,14 +38,21 @@
     delete_header/2,
     update_message_type/2,
     new_part/0,
-    new_part/4,
+    new_part/5,
+    generate_content_id/0,
+    update_content_id/2,
+    update_filename/2,
+    update_encoding/2,
+    update_disposition/2,
+    update_data/2,
     add_part/2,
     remove_last_part/1,
     add_plain_text_part/2,
     inline_file/2,
     inline_file/3,
     attach_file/2,
-    attach_file/3
+    attach_file/3,
+    attach_file/4
     ]
 ).
 
@@ -207,15 +214,54 @@ new_part() ->
 -spec new_part( 
     Encoding :: { EncodingType :: string(), MimeType :: string(), CharacterSet :: string() },
     Disposition :: atom(),
+    ContentId :: 'undefined' | string(),
     Filename :: 'undefined' | string(),
     Data :: string() ) -> #mime_part{}.
 % @doc Create a new message part, specifying all of the part components.
-new_part(Encoding, Disposition, Filename, Data) ->
+new_part(Encoding, Disposition, ContentId, Filename, Data) ->
     #mime_part{
         encoding = Encoding,
         disposition = Disposition,
+        content_id = ContentId,
         filename = Filename,
         data = Data}.
+
+-spec generate_content_id() -> string().
+% @doc Generate a cryptographically random 16 byte Content ID.
+generate_content_id() ->
+   <<X:128/big-unsigned-integer>> = crypto:rand_bytes(16),
+   io_lib:format("~36.0B", [X]).
+
+-spec update_content_id( Part :: #mime_part{}, ContentId :: string() ) -> #mime_part{}.
+% @doc Update a Content ID in a MIME message part.
+%
+% The value `undefined' can be used to effectively clear any previously set value.
+% @end
+update_content_id(Part, ContentId) ->
+    Part#mime_part{content_id = ContentId}.
+
+-spec update_filename( Part :: #mime_part{}, Filename :: 'undefined' | string() ) -> #mime_part{}.
+% @doc Update a filename in a MIME message part.
+%
+% The value `undefined' can be used to effectively clear any previously set value.
+% @end
+update_filename(Part, Filename) ->
+    Part#mime_part{filename = Filename}.
+
+-spec update_data( Part :: #mime_part{}, Data :: string() ) -> #mime_part{}.
+% @doc Update the data in a MIME message part.
+update_data(Part, Data) ->
+    Part#mime_part{data = Data}.
+
+-spec update_encoding( Part :: #mime_part{}, Encoding :: { EncodingType :: string(), MimeType :: string(), CharSet :: string() } ) -> #mime_part{}.
+% @doc Update the encoding tuple in a MIME message part.
+update_encoding( Part, Encoding ) ->
+    Part#mime_part{encoding = Encoding}.
+
+-spec update_disposition( Part :: #mime_part{}, Disposition :: atom() ) -> #mime_part{}.
+% @doc Update the content disposition in a MIME message part.
+update_disposition(Part, Disposition) ->
+    Part#mime_part{disposition = Disposition}.
 
 -spec add_part( Msg :: #mime_msg{}, Part :: #mime_part{} ) -> #mime_msg{}.
 % @doc Add a part to a MIME message.
@@ -243,12 +289,12 @@ add_plain_text_part(Msg = #mime_msg{parts = P}, Body) ->
 % @end
 inline_file(Msg, Filename) ->
     Guess = guess_mime_type(Filename),
-    handle_file(get_mime_type(Guess), Msg, Guess, inline, Filename).
+    handle_file(get_mime_type(Guess), Msg, Guess, inline, undefined, Filename).
 
 -spec inline_file( Msg :: #mime_msg{}, MimeType :: string(), Filename :: string() ) -> #mime_msg{}.
 % @doc Add an inline file with the specified MIME type.
 inline_file(Msg, MimeType, Filename) ->
-    handle_file(get_mime_type(MimeType), Msg, MimeType, inline, Filename).
+    handle_file(get_mime_type(MimeType), Msg, MimeType, inline, undefined, Filename).
 
 -spec attach_file( Msg :: #mime_msg{}, Filename :: string() ) -> #mime_msg{}.
 % @doc Attach a file to a message.  
@@ -257,12 +303,19 @@ inline_file(Msg, MimeType, Filename) ->
 % @end
 attach_file(Msg, Filename) ->
     Guess = guess_mime_type(Filename),
-    handle_file(get_mime_type(Guess), Msg, Guess, attachment, Filename).
+    handle_file(get_mime_type(Guess), Msg, Guess, attachment, undefined, Filename).
 
 -spec attach_file( Msg :: #mime_msg{}, MimeType :: string(), Filename :: string() ) -> #mime_msg{}.
 % @doc Attach a file to a message with the specified MIME type.
 attach_file(Msg, MimeType, Filename) ->
-    handle_file(get_mime_type(MimeType), Msg, MimeType, attachment, Filename).
+    handle_file(get_mime_type(MimeType), Msg, MimeType, attachment, undefined, Filename).
+
+-spec attach_file( Msg :: #mime_msg{}, MimeType :: string(), ContentId :: string(), Filename :: string() ) -> #mime_msg{}.
+% @doc Attach a file to a message with the specified MIME type and Content ID.
+%
+% @see generate_content_id/0. 
+attach_file(Msg, MimeType, ContentId, Filename) ->
+    handle_file(get_mime_type(MimeType), Msg, MimeType, attachment, ContentId, Filename).
 
 %% PRIVATE FUNCTIONS
 
@@ -308,18 +361,20 @@ get_mime_type(MimeType) ->
     Type.
 
 
-handle_file("text", Msg, MimeType, Disposition, Filename) ->
+handle_file("text", Msg, MimeType, Disposition, ContentId, Filename) ->
     add_part(Msg, new_part(
         {"7bit", MimeType, "US-ASCII"},
         Disposition,
+        ContentId,
         Filename,
         binary_to_list(read_file(Filename))
     ) );
 
-handle_file(_Type, Msg, MimeType, Disposition, Filename) ->
+handle_file(_Type, Msg, MimeType, Disposition, ContentId, Filename) ->
     add_part(Msg, new_part(
         {"base64", MimeType, "US-ASCII"},
         Disposition,
+        ContentId,
         Filename,
         base64:encode_to_string(read_file(Filename)))).
 
@@ -355,6 +410,9 @@ encode_headers(Headers) ->
 
 
 %% Encode message parts
+%% 
+%% Based on code from:
+%% https://github.com/archaelus/esmtp/blob/master/src/esmtp_mime.erl#L101
 encode_parts(#mime_msg{parts=Parts, boundary=Boundary}) ->
     lists:map(fun(P) -> encode_part(P,Boundary) end, Parts).
 
@@ -366,17 +424,29 @@ encode_part(#mime_part{data=Data} = P, Boundary) ->
 encode_part(Msg = #mime_msg{}, Boundary) ->
     "--" ++ Boundary ++ "\r\n" ++ encode(Msg) ++ "\r\n".
 
-part_headers(#mime_part{disposition=undefined, 
-                        encoding={Enc, MimeType, Charset},
+part_headers(#mime_part{encoding={Enc, MimeType, Charset},
+                        content_id=undefined,
                         filename=undefined}) ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, {charset, Charset}]}];
 
 part_headers(#mime_part{disposition=D, 
                         encoding={Enc, MimeType, Charset},
+                        content_id = undefined,
                         filename=Filename}) when D == inline; D == attachment ->
     [{"Content-Transfer-Encoding", Enc},
      {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Filename]},
+     {"Content-Disposition", [atom_to_list(D), 
+                              {"filename", 
+                              Filename}]}];
+
+part_headers(#mime_part{disposition=D, 
+                        encoding={Enc, MimeType, Charset},
+                        content_id = ContentId,
+                        filename=Filename}) when D == inline; D == attachment ->
+    [{"Content-Transfer-Encoding", Enc},
+     {"Content-Type", [MimeType, "charset=" ++ Charset ++ ",name=" ++ Filename]},
+     {"Content-Id", ContentId},
      {"Content-Disposition", [atom_to_list(D), 
                               {"filename", 
                               Filename}]}].
