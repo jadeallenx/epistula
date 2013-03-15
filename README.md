@@ -17,22 +17,16 @@ or parsing it.
 
 Build
 -----
-<code><pre>
     rebar get-deps
 
     rebar compile
-</pre></code>
 
 Example
 -------
-<code><pre>
-
     erl -c erl.config -pa ebin -pa deps/*/ebin
     1> epistula:start().
     2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
     3> esmtp:send(epistula:to(Msg), epistula:from(Msg), epistula:encode(Msg)).
-
-</pre></code>
 
 Email transport
 ---------------
@@ -49,14 +43,14 @@ use the `STARTTLS` directive to begin an SSL session with the smarthost.
 
 Example esmtp config
 --------------------
-<code><pre>
+```erlang
 [
  {esmtp, [
     {smarthost, {"localhost", 25}},
     {default_from, "youremail@example.com"}
  ]}
 ].
-</pre></code>
+```
 
 See also the `erl.config` file in the project root.
 
