@@ -1,16 +1,23 @@
+%% @author Marc Worrell <marc@worrell.nl>
+%% @copyright 2009 Marc Worrell
+%%
+%% @doc
 %% Encode a string according to RFC 2047 using quoted-printable.
 %% Assumes UTF-8 as the character set.
 %%
-%% @copyright 2009 Marc Worrell
+%% This module was modified from the original to support encoding only.
 %%
 %% Original source:
-%% https://raw.github.com/zotonic/zotonic/master/src/smtp/rfc2047.erl
+%% [https://raw.github.com/zotonic/zotonic/master/src/smtp/rfc2047.erl]
+%% @end
 
 -module(rfc2047).
 -author("Marc Worrell <marc@worrell.nl>").
 
 -export([encode/1]).
 
+-spec encode( Word :: string() | binary() ) -> string().
+% @doc Encode given string as in UTF-8 quoted printable format
 encode(B) when is_binary(B) ->
 	encode(binary_to_list(B));
 encode([]) -> 
