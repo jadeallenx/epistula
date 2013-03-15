@@ -1,9 +1,7 @@
 %% @author Mark Allen <mrallen1@yahoo.com>
 %% @copyright 2013 Mark Allen
 %% @doc 
-%%
-%%
-%%
+%% Easily format and send MIME email from Erlang.
 %% @end
 %% Copyright 2013 Mark Allen
 %%

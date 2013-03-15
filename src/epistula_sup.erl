@@ -1,4 +1,4 @@
-
+% @hidden
 -module(epistula_sup).
 
 -behaviour(supervisor).

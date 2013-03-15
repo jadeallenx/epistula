@@ -1,3 +1,4 @@
+% @hidden
 -module(epistula_app).
 
 -behaviour(application).

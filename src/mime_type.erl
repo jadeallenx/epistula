@@ -1,15 +1,18 @@
+% @doc
+% Given a file extension, return a MIME type.
+%
+% Primary source for these comes from
+% [http://svn.apache.org/repos/asf/httpd/httpd/branches/1.3.x/conf/mime.types]
+% @end
 -module(mime_type).
 -export([extension/1]).
 
 -spec extension( Extension :: string() ) -> string().
 % @doc Get a MIME type given a file extension.
 %
-% Primary source for these comes from
-% [http://svn.apache.org/repos/asf/httpd/httpd/branches/1.3.x/conf/mime.types]
-%
 % The default MIME type is `application/octet-stream'
 % @end
-
+%
 % certificates/crypto
 extension("crt") -> "application/x-x509-ca-cert";
 extension("cer") -> "application/pkix-cert";

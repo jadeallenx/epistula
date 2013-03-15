@@ -26,12 +26,40 @@ other Erlang applications, including its dependency
 
 <code><pre>
 
-    erl -pa ebin -pa deps/esmtp/ebin
+    erl -c erl.config -pa ebin -pa deps/*/ebin
     1> epistula:start().
     2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
     3> esmtp:send(epistula:to(Msg), epistula:from(Msg), epistula:encode(Msg)).
 
 </pre></code>
+
+== Email transport ==
+
+This application assumes that you will be using an SMTP "smarthost" to do your email routing.
+Depending on your network, it may be a local smtp server listening on port 25.
+
+The following esmtp application configuration variables are available:
+<ul>
+    <li>`smarthost' {Host::string(), Port::pos_integer()}</li>
+    <li>`login' {Username::string, Password::string()}</li>
+    <li>`default_from' From :: string()</li>
+</ul>
+
+If the smarthost port is set to 465 or 587, the esmtp application will attempt to
+use the `STARTTLS' directive to begin an SSL session with the smarthost.
+
+== Example esmtp config ==
+
+<code><pre>
+[
+ {esmtp, [
+    {smarthost, {"localhost", 25}},
+    {default_from, "youremail@example.com"}
+ ]}
+].
+</pre></code>
+
+See also the `erl.config' file in the project root.
 
 == LICENSE ==
 
