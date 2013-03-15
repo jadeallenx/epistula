@@ -1,0 +1,48 @@
+@author Mark Allen <mrallen1@yahoo.com>
+@copyright 2013 Mark Allen
+@title Epistula: an Erlang application to easily send MIME email
+
+== Overview ==
+
+Epistula is a <a href="http://en.wiktionary.org/wiki/epistula">latin
+noun</a> that means "letter."
+
+The goal of this application is to permit easy construction and sending of
+MIME emails.  This application cribs several functions and ideas from
+other Erlang applications, including its dependency 
+<a href="https://github.com/archaelus/esmtp">esmtp</a> and the
+<a href="https://github.com/zotonic/zotonic">zotonic</a> CMS.
+
+== Build ==
+
+<code>
+    rebar get-deps
+
+    rebar compile
+</code>
+
+== Example ==
+
+<code>
+
+    erl -pa ebin -pa deps/esmtp/ebin
+    1> epistula:start().
+    2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
+    3> esmtp:send(epistula:to(Msg), epistula:from(Msg), epistula:encode(Msg)).
+
+</code>
+
+== LICENSE ==
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
