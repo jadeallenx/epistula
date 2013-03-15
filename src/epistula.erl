@@ -1,7 +1,10 @@
-%% @doc 
 %% @author Mark Allen <mrallen1@yahoo.com>
-%% @copyright Copyright (C) 2013 Mark Allen
+%% @copyright 2013 Mark Allen
+%% @doc 
 %%
+%%
+%%
+%% @end
 %% Copyright 2013 Mark Allen
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,8 +57,7 @@
     attach_file/2,
     attach_file/3,
     attach_file/4
-    ]
-).
+    ]).
 
 %% API
 
