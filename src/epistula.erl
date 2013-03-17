@@ -22,6 +22,8 @@
 
 -include("mime.hrl").
 
+-include_lib("eunit/include/eunit.hrl").
+
 -export([
     start/0,
     encode/1,
@@ -471,3 +473,22 @@ headers(#mime_msg{headers=H, boundary=Boundary}) ->
     H ++ [{"MIME-Version", "1.0"},
           {"Content-Type", ["multipart/mixed", 
                             "boundary=\"" ++ Boundary ++ "\""]}].
+
+%% Test functions
+
+new_3_test() -> 
+    Msg = new("foo@example.com", "bar@example.com", "Example"),
+    "foo@example.com" = proplists:get_value("To", Msg#mime_msg.headers),
+    "bar@example.com" = proplists:get_value("From", Msg#mime_msg.headers),
+    "Example" = proplists:get_value("Subject", Msg#mime_msg.headers),
+    ok.
+
+new_4_test() ->
+    Msg = new("foo@example.com", "bar@example.com", "Example", "Hoge"),
+    "foo@example.com" = proplists:get_value("To", Msg#mime_msg.headers),
+    "bar@example.com" = proplists:get_value("From", Msg#mime_msg.headers),
+    "Example" = proplists:get_value("Subject", Msg#mime_msg.headers),
+    Part = hd(Msg#mime_msg.parts),
+    "Hoge" = Part#mime_part.data,
+    ok.
+
