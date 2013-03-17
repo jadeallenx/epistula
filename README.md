@@ -4,7 +4,6 @@ An Erlang library for constructing and sending MIME emails
 
 Overview
 --------
-
 Epistula is a [latin noun][1] that means "letter."
 
 The goal of this application is to permit easy construction and sending of
@@ -15,18 +14,39 @@ other Erlang applications, including its dependency [esmtp][2] and the
 The emphasis here is on constructing and sending email, not receiving 
 or parsing it.
 
+###Code structure
+The library revolves around two records.  The message structure as a whole is stored in
+a MIME message record. It has the following definition:
+
+```erlang
+-record(mime_msg, {
+    type=mixed, 
+    headers=[], 
+    boundary, 
+    parts=[]}
+).
+```
+
+Headers are defined as {Header, Value} tuples. Parts are #mime\_part{} records.  It has
+the following definition:
+
+```erlang
+-record(mime_part, { 
+    encoding={"7bit", "text/plain", "US-ASCII"}, 
+    disposition=inline, 
+    content_id,
+    filename, 
+    data}
+).
+```
+
+`content_id` and `filename` are ignored if they're undefined.
+
 Build
 -----
     rebar get-deps
 
     rebar compile
-
-Example
--------
-    erl -c erl.config -pa ebin -pa deps/*/ebin
-    1> epistula:start().
-    2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
-    3> esmtp:send(epistula:to(Msg), epistula:from(Msg), epistula:encode(Msg)).
 
 Email transport
 ---------------
@@ -40,6 +60,13 @@ The following esmtp application configuration variables are available:
 
 If the smarthost port is set to 465 or 587, the esmtp application will attempt to
 use the `STARTTLS` directive to begin an SSL session with the smarthost.
+
+Example
+-------
+    erl -c erl.config -pa ebin -pa deps/*/ebin
+    1> epistula:start().
+    2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
+    3> ok = epistula:send(Msg).
 
 Example esmtp config
 --------------------

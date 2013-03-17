@@ -14,6 +14,35 @@ other Erlang applications, including its dependency
 <a href="https://github.com/archaelus/esmtp">esmtp</a> and the
 <a href="https://github.com/zotonic/zotonic">zotonic</a> CMS.
 
+=== Code structure ===
+
+The library revolves around two records.  The message structure as a whole is stored in
+a MIME message record. It has the following definition:
+
+<code><pre>
+    -record(mime_msg, {
+        type=mixed, 
+        headers=[], 
+        boundary, 
+        parts=[]}
+    ).
+</pre></code>
+
+Headers are defined as {Header, Value} tuples. Parts are #mime_part{} records.  It has
+the following definition:
+
+<code><pre>
+    -record(mime_part, { 
+        encoding={"7bit", "text/plain", "US-ASCII"}, 
+        disposition=inline, 
+        content_id,
+        filename, 
+        data}
+    ).
+</pre></code>
+
+`content_id' and `filename' are ignored if they're undefined.
+
 == Build ==
 
 <code><pre>
@@ -22,16 +51,6 @@ other Erlang applications, including its dependency
     rebar compile
 </pre></code>
 
-== Example ==
-
-<code><pre>
-
-    erl -c erl.config -pa ebin -pa deps/*/ebin
-    1> epistula:start().
-    2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
-    3> esmtp:send(epistula:to(Msg), epistula:from(Msg), epistula:encode(Msg)).
-
-</pre></code>
 
 == Email transport ==
 
@@ -47,6 +66,17 @@ The following esmtp application configuration variables are available:
 
 If the smarthost port is set to 465 or 587, the esmtp application will attempt to
 use the `STARTTLS' directive to begin an SSL session with the smarthost.
+
+== Example ==
+
+<code><pre>
+
+    erl -c erl.config -pa ebin -pa deps/*/ebin
+    1> epistula:start().
+    2> Msg = epistula:new("to@example.com", "from@example.com", "Example subject", "Example body text").
+    3> ok = epistula:send(Msg).
+
+</pre></code>
 
 == Example esmtp config ==
 
