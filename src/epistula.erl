@@ -25,6 +25,7 @@
 -export([
     start/0,
     encode/1,
+    send/1,
     new/0,
     new/1,
     new/3,
@@ -75,6 +76,15 @@ encode(Msg) ->
     encode_headers(headers(Msg)) ++ "\r\n\r\n" ++
         encode_parts(Msg) ++
         "--" ++ Msg#mime_msg.boundary ++ "--\r\n".
+
+-spec send(Msg :: #mime_msg{}) -> ok.
+% @doc Send a message using `esmtp'
+%
+% Sugar to encode and send a message.
+% @end
+send(Msg) -> 
+    esmtp:send(email(to(Msg)), email(from(Msg)), encode(Msg)),
+    ok.
 
 -spec new() -> #mime_msg{}.
 % @doc Create a new barebones #mime_msg{} record.
