@@ -8,5 +8,8 @@
                   stdlib
                  ]},
   {mod, { epistula_app, []}},
-  {env, []}
+  {env, [
+      {use_file_cmd, false},
+      {file_cmd, "/usr/bin/file --mime-type --brief"}
+      ]}
  ]}.
