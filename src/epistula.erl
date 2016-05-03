@@ -178,7 +178,7 @@ email(S) ->
 % additions will update the value of the header.
 % @end
 add_header(Msg = #mime_msg{headers = H}, Header = {Key, _Value}) when is_list(Key) ->
-    Msg#mime_msg{headers = lists:keystore(H, 1, Key, Header)};
+    Msg#mime_msg{headers = lists:keystore(Key, 1, H, Header)};
 
 add_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
     add_header(Msg, {atom_to_list(Key), Value}).
@@ -201,8 +201,8 @@ update_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
 
 -spec delete_header( Msg :: #mime_msg{}, Header :: { Key :: atom() | string(), Value :: string() } ) -> #mime_msg{}.
 % @doc Remove a header from a message.
-delete_header(Msg = #mime_msg{headers = H}, Header = {Key, _Value}) when is_list(Key) -> 
-    Msg#mime_msg{headers = lists:keydelete(H, 1, Key, Header)};
+delete_header(Msg = #mime_msg{headers = H}, {Key, _Value}) when is_list(Key) ->
+    Msg#mime_msg{headers = lists:keydelete(Key, 1, H)};
 
 delete_header(Msg, _Header = {Key, Value}) when is_atom(Key) ->
     delete_header(Msg, {atom_to_list(Key), Value}).
